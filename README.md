@@ -1,198 +1,177 @@
-# Instead-Trigger
+# 📘 INSTEAD OF Trigger in PL/SQL
 
+## 📌 Einleitung: Was ist ein INSTEAD OF Trigger?
 
-# 🧠 INSTEAD OF Trigger in SQL
+Ein `INSTEAD OF` Trigger wird auf **Views** definiert und **ersetzt eine DML-Operation** (`INSERT`, `UPDATE`, `DELETE`), die eigentlich nicht direkt auf einem View ausgeführt werden kann. Das bedeutet:
+
+- Die Aktion (z. B. ein `INSERT` in den View) wird **nicht vom DBMS ausgeführt**, sondern der Trigger führt **eine benutzerdefinierte Operation** auf den zugrunde liegenden Tabellen aus.
+- Das ist besonders nützlich, wenn der View aus mehreren Tabellen besteht oder berechnete/umbenannte Felder enthält.
 
 ---
 
-## 📚 Allgemeines Beispiel – INSTEAD OF Trigger (Vorlage)
+## 🔄 Allgemeines Trigger-Beispiel (Schablone)
 
 ```sql
-create or replace trigger trigger_name                     -- 🔸 Trigger wird erstellt oder ersetzt
-instead of insert or update or delete on view_name         -- 🔸 Gilt für eine View – ersetzt DML-Operationen (INSERT/UPDATE/DELETE)
-for each row                                               -- 🔸 Trigger wird für jede betroffene Zeile einzeln ausgeführt
-declare
-    v_variable table.column%type;                          -- 📦 Lokale Variable, z. B. zum Zwischenspeichern
-begin
-    if inserting then                                      -- ➕ Wenn ein INSERT erfolgt
-        insert into base_table (spalte1, spalte2, ...)
-        values (:new.spalte1, :new.spalte2);               -- 🧾 INSERT in Basistabelle
+CREATE OR REPLACE TRIGGER trigger_name                     -- 🔸 Trigger wird erstellt oder ersetzt
+INSTEAD OF INSERT OR UPDATE OR DELETE ON view_name         -- 🔸 Gilt für eine View – ersetzt DML-Operationen (INSERT/UPDATE/DELETE)
+FOR EACH ROW                                               -- 🔸 Trigger wird für jede betroffene Zeile einzeln ausgeführt
+DECLARE
+    v_variable table.column%TYPE;                          -- 📦 Lokale Variable, z. B. um Werte zwischenzuspeichern
+BEGIN
+    IF INSERTING THEN                                      -- ➕ Wenn ein INSERT erfolgt
+        INSERT INTO base_table (spalte1, spalte2, ...)     -- 🧾 Datensatz in Basistabelle einfügen
+        VALUES (:NEW.spalte1, :NEW.spalte2, ...);          --     mit Werten aus der View-Zeile
 
-    elsif updating then                                    -- 🔁 Wenn ein UPDATE erfolgt
-        update base_table
-        set spalte1 = :new.spalte1,
-            spalte2 = :new.spalte2
-        where primary_key = :old.primary_key;              -- 🎯 Identifikation über Primärschlüssel
+    ELSIF UPDATING THEN                                    -- 🔁 Wenn ein UPDATE erfolgt
+        UPDATE base_table                                  -- 🛠️ Update in der Basistabelle
+        SET spalte1 = :NEW.spalte1,
+            spalte2 = :NEW.spalte2
+        WHERE primary_key = :OLD.primary_key;              -- 🎯 Identifikation über Primärschlüssel
 
-    elsif deleting then                                    -- ❌ Wenn ein DELETE erfolgt
-        delete from base_table
-        where primary_key = :old.primary_key;              -- 🗑️ Zeile löschen
-    end if;
+    ELSIF DELETING THEN                                    -- ❌ Wenn ein DELETE erfolgt
+        DELETE FROM base_table                             -- 🗑️ Datensatz in Basistabelle löschen
+        WHERE primary_key = :OLD.primary_key;
+    END IF;
 
-exception
-    when no_data_found then                                -- ❗ Kein passender Datensatz gefunden
-        raise_application_error(-20001, 'Datensatz nicht gefunden!');
-
-    when others then                                       -- ⚠️ Allgemeiner Fehler
-        raise_application_error(-20002, 'Ein unbekannter Fehler ist aufgetreten!');
-end;
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN                                -- ❗ Kein Datensatz gefunden
+        RAISE_APPLICATION_ERROR(-20001, 'Datensatz nicht gefunden!');
+    WHEN OTHERS THEN                                       -- ⚠️ Alle anderen Fehler
+        RAISE_APPLICATION_ERROR(-20002, 'Ein unbekannter Fehler ist aufgetreten!');
+END;
 /
 ```
 
 ---
 
-## 🧠 Aufgabe 1.1 – View mit Abteilungsname (statt deptno)
+## 🧠 Aufgabe 1.1 – View mit Abteilungsname (statt `DEPTNO`)
 
-### 🎯 Ziel
+### 🎯 Ziel der Aufgabe:
+Wir möchten einen View erstellen, der **Mitarbeiterdaten mit dem Abteilungsnamen (`DNAME`)** anzeigt, statt mit der technischen `DEPTNO`. 
 
-Ein View zeigt **Mitarbeiterdaten mit `dname`** (statt `deptno`).  
-Über den View sollen INSERT und UPDATE möglich sein.  
-Ein INSTEAD OF Trigger übernimmt intern die Zuordnung von `dname → deptno`.
+Der Benutzer soll über den View `INSERT` und `UPDATE` machen dürfen, **ohne die DEPTNO kennen zu müssen**. Der Trigger übernimmt dann automatisch die Umwandlung.
 
----
-
-### 👀 View erstellen
+### 👀 View: `empno_with_dept_name`
 
 ```sql
-create or replace view emp_with_deptno_name as
-select
-    e.ename,                       -- 🧑 Name
-    e.empno,                       -- 🔢 Mitarbeiterschlüssel
-    e.sal,                         -- 💰 Gehalt
-    d.dname                        -- 🏢 Abteilungsname
-from emp e
-join dept d on e.deptno = d.deptno; -- 🔗 FK-Verbindung EMP → DEPT
+CREATE OR REPLACE VIEW empno_with_dept_name AS
+SELECT
+    e.empno,              -- 🔢 Mitarbeiter-ID
+    e.ename,              -- 🧑 Name
+    e.job,                -- 💼 Jobbezeichnung
+    e.sal,                -- 💰 Gehalt
+    d.dname               -- 🏢 Abteilungsname (statt DEPTNO)
+FROM emp e
+JOIN dept d ON e.deptno = d.deptno;  -- 🔗 Fremdschlüsselbeziehung
 ```
 
----
-
-### 🔄 Trigger zur Verarbeitung von Insert/Update
+### 🛠 Trigger: `trg_emp_with_dname`
 
 ```sql
-create or replace trigger trg_insert_emp_with_dname
-instead of insert or update on emp_with_deptno_name
-for each row
-declare
-    v_deptno dept.deptno%type;     -- 📦 Speichert die echte DEPTNO
-begin
-    select deptno into v_deptno
-    from dept
-    where dname = :new.dname;
+CREATE OR REPLACE TRIGGER trg_emp_with_dname
+INSTEAD OF INSERT OR UPDATE ON empno_with_dept_name
+FOR EACH ROW
+DECLARE
+    v_deptno dept.deptno%TYPE;                         -- 📦 Zwischenspeicher für DEPTNO
+BEGIN
+    SELECT deptno INTO v_deptno
+    FROM dept
+    WHERE dname = :NEW.dname;                          -- 🔍 Umwandlung dname → deptno
 
-    if inserting then
-        insert into emp (empno, ename, sal, deptno)
-        values (:new.empno, :new.ename, :new.sal, v_deptno);
+    IF INSERTING THEN
+        INSERT INTO emp (empno, ename, job, sal, deptno)
+        VALUES (:NEW.empno, :NEW.ename, :NEW.job, :NEW.sal, v_deptno);
 
-    elsif updating then
-        update emp
-        set ename = :new.ename,
-            sal = :new.sal,
+    ELSIF UPDATING THEN
+        UPDATE emp
+        SET ename = :NEW.ename,
+            job   = :NEW.job,
+            sal   = :NEW.sal,
             deptno = v_deptno
-        where empno = :old.empno;
-    end if;
+        WHERE empno = :OLD.empno;
+    END IF;
 
-exception
-    when no_data_found then
-        raise_application_error(-20001, 'Abteilung nicht gefunden: ' || :new.dname);
-end;
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Abteilung nicht gefunden: ' || :NEW.dname);
+END;
 /
 ```
 
----
-
-### 🧪 Testfälle für View `emp_with_deptno_name`
+### ✅ Testfälle
 
 ```sql
--- ✅ Insert mit gültigem dname
-insert into emp_with_deptno_name (empno, ename, sal, dname)
-values (9999, 'Testuser', 3000, 'SALES');
+-- Einfügen eines neuen Mitarbeiters mit gültigem Abteilungsnamen
+INSERT INTO empno_with_dept_name (empno, ename, job, sal, dname)
+VALUES (1234, 'MAX', 'CLERK', 1500, 'SALES');
 
--- ❌ Insert mit ungültigem dname
-insert into emp_with_deptno_name (empno, ename, sal, dname)
-values (9998, 'Fehltest', 3000, 'NICHTEXISTENT');
+-- Update des Mitarbeiters mit anderer Abteilung
+UPDATE empno_with_dept_name
+SET dname = 'RESEARCH', sal = 1600
+WHERE empno = 1234;
 
--- ✅ Insert eines weiteren gültigen Mitarbeiters
-insert into emp_with_deptno_name (empno, ename, sal, dname)
-values (1001, 'Hans', 2800, 'SALES');
-
--- 🔁 Update: Gehalt + Abteilung ändern
-update emp_with_deptno_name
-set sal = 3500, dname = 'RESEARCH'
-where empno = 1001;
-
--- ❌ Update mit ungültiger Abteilung
-update emp_with_deptno_name
-set dname = 'NICHTEXISTENT'
-where empno = 1001;
+-- Fehlerfall: ungültiger Abteilungsname
+INSERT INTO empno_with_dept_name (empno, ename, job, sal, dname)
+VALUES (1235, 'FAILTEST', 'CLERK', 1400, 'NICHTEXISTENT');
 ```
 
 ---
 
-## 🧠 Aufgabe 1.2 – View mit formatiertem Datum (YYYY-MM-DD)
+## 🧠 Aufgabe 1.2 – View mit Datum im Format `YYYY-MM-DD`
 
-### 🎯 Ziel
+### 🎯 Ziel der Aufgabe:
+Der Benutzer soll über einen View auf das `HIREDATE`-Datum im lesbaren Format `YYYY-MM-DD` zugreifen und trotzdem `INSERT` und `UPDATE` durchführen können. Der Trigger übernimmt die Umwandlung in das echte DATE-Format.
 
-Ein View zeigt das `hiredate`-Datum im Format `YYYY-MM-DD`.  
-INSERT und UPDATE sollen über den View möglich sein.  
-Ein Trigger konvertiert das Textdatum zurück in SQL `DATE`.
-
----
-
-### 👀 View mit formatiertem Datum
+### 👀 View: `date_format_view`
 
 ```sql
-create or replace view date_format_view as
-select
-    empno,                                             -- 🔢 Mitarbeiter-ID
-    ename,                                             -- 🧑 Name
-    to_char(hiredate, 'YYYY-MM-DD') as format_hiredate -- 📅 Datum als Text
-from emp;
+CREATE OR REPLACE VIEW date_format_view AS
+SELECT
+    empno,                                            -- 🔢 Mitarbeiter-ID
+    ename,                                            -- 🧑 Name
+    TO_CHAR(hiredate, 'YYYY-MM-DD') AS format_hiredate -- 📅 Datum als Text
+FROM emp;
 ```
 
----
-
-### 🔄 Trigger zur Rückkonvertierung
+### 🔄 Trigger: `trg_format_date`
 
 ```sql
-create or replace trigger trg_format_date 
-instead of insert or update on date_format_view
-for each row
-declare
-    dateval date;  -- 📦 Speichert das echte Datum
-begin
-    dateval := to_date(:new.format_hiredate, 'YYYY-MM-DD');
+CREATE OR REPLACE TRIGGER trg_format_date
+INSTEAD OF INSERT OR UPDATE ON date_format_view
+FOR EACH ROW
+DECLARE
+    dateval DATE;                                           -- 📦 Umgewandeltes Datum
+BEGIN
+    dateval := TO_DATE(:NEW.format_hiredate, 'YYYY-MM-DD'); -- 🔄 Rückkonvertierung ins DATE-Format
 
-    if inserting then
-        insert into emp (empno, ename, hiredate)
-        values (:new.empno, :new.ename, dateval);
+    IF INSERTING THEN
+        INSERT INTO emp (empno, ename, hiredate)
+        VALUES (:NEW.empno, :NEW.ename, dateval);
 
-    elsif updating then
-        update emp
-        set ename = :new.ename,
+    ELSIF UPDATING THEN
+        UPDATE emp
+        SET ename = :NEW.ename,
             hiredate = dateval
-        where empno = :old.empno;
-    end if;
-end;
+        WHERE empno = :OLD.empno;
+    END IF;
+END;
 /
 ```
 
----
-
-### 🧪 Testfälle für View `date_format_view`
+### ✅ Testfälle
 
 ```sql
--- ✅ Insert mit gültigem Datum
-insert into date_format_view (empno, ename, format_hiredate)
-values (9955, 'DATUMTEST', '2025-04-04');
+-- Neuer Mitarbeiter mit formatiertem Datum
+INSERT INTO date_format_view (empno, ename, format_hiredate)
+VALUES (9955, 'DATUMTEST', '2025-04-04');
 
--- 🔁 Update des Datums
-update date_format_view
-set format_hiredate = '2025-05-01'
-where empno = 9955;
+-- Update des Einstellungsdatums
+UPDATE date_format_view
+SET format_hiredate = '2025-05-01'
+WHERE empno = 9955;
 
--- 📋 Kontrolle
-select * from date_format_view where empno = 9955;
+-- Kontrolle der Darstellung
+SELECT * FROM date_format_view WHERE empno = 9955;
 ```
 
 ---
-

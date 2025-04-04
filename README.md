@@ -45,7 +45,11 @@ END;
 ---
 
 ## 🧠 Aufgabe 1.1 – View mit Abteilungsname (statt `DEPTNO`)
-
+ 1.1. Instead of Trigger, typische Beispiele
+        * Erzeugen Sie einen View in welchem der Mitarbeiter samt dem Namen seiner Abteilung ausgegeben wird (ohne PK der Abteilung).
+            bei insert und update soll anhand des eingefügten Namens die korrekte PK<->FK-Beziehung hergestellt werden, oder
+            ein Fehler geworfen werden, wenn es keine Abteilung mit dem gegebenen Namen gibt.
+        
 ### 🎯 Ziel der Aufgabe:
 Wir möchten einen View erstellen, der **Mitarbeiterdaten mit dem Abteilungsnamen (`DNAME`)** anzeigt, statt mit der technischen `DEPTNO`. 
 
@@ -118,7 +122,7 @@ VALUES (1235, 'FAILTEST', 'CLERK', 1400, 'NICHTEXISTENT');
 ---
 
 ## 🧠 Aufgabe 1.2 – View mit Datum im Format `YYYY-MM-DD`
-
+* Ein View, in dem sämtliche Datumswerte bereits im Vorfeld im Format YYYY-MM-DD ausgegeben werden, Update  und Insert sollen möglich sein.
 ### 🎯 Ziel der Aufgabe:
 Der Benutzer soll über einen View auf das `HIREDATE`-Datum im lesbaren Format `YYYY-MM-DD` zugreifen und trotzdem `INSERT` und `UPDATE` durchführen können. Der Trigger übernimmt die Umwandlung in das echte DATE-Format.
 

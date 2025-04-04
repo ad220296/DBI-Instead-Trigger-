@@ -1,4 +1,4 @@
-# DBI-Instead-Trigger-
+# Instead-Trigger
 
 
 # 🧠 INSTEAD OF Trigger in SQL

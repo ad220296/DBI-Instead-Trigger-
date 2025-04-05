@@ -1,3 +1,10 @@
+---
+## 🔗 Navigation
+
+- 🔄 [Zur Übersicht aller Trigger](https://github.com/ad220296/DBI-Trigger-Overview)
+- 🧩 [Zu den Compound Triggern](https://github.com/ad220296/DBI-Compound-Trigger-)
+---
+
 # 📘 INSTEAD OF Trigger in PL/SQL
 
 ## 📌 Einleitung: Was ist ein INSTEAD OF Trigger?

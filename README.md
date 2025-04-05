@@ -179,3 +179,67 @@ SELECT * FROM date_format_view WHERE empno = 9955;
 ```
 
 ---
+# 📘 INSTEAD OF Trigger in PL/SQL – Zusammenfassung
+
+## 🧩 Übersicht der Aufgaben 1.1 und 1.2 – INSTEAD OF Trigger
+
+| Aufgabe  | Thema                              | Ziel                                                                 |
+|----------|------------------------------------|----------------------------------------------------------------------|
+| 1.1      | Abteilungsname statt DEPTNO im View| Benutzer sieht DNAME, Trigger wandelt zu DEPTNO um                  |
+| 1.2      | Datum als Text anzeigen (YYYY-MM-DD)| Benutzer sieht/ändert Datum als Text, Trigger wandelt zurück in DATE |
+
+---
+
+## 🟢 Aufgabe 1.1 – View mit DNAME statt DEPTNO
+
+### 🔍 View-Idee
+Benutzer sieht Abteilungsname (`dname`) statt der Fremdschlüsselspalte `deptno`.  
+Der Trigger macht `INSERT` und `UPDATE` über diesen View möglich, indem er den Namen in die Nummer umwandelt.
+
+### ✅ Vorteile
+- Benutzer muss keine technischen Schlüssel kennen
+- Fehlerbehandlung, falls `dname` ungültig ist
+
+### 🧠 Triggerlogik
+- `SELECT deptno INTO ... FROM dept WHERE dname = :NEW.dname`
+- Bei INSERT: Werte + `deptno` in Tabelle `emp` einfügen
+- Bei UPDATE: bestehende Zeile aktualisieren
+
+---
+
+## 🟢 Aufgabe 1.2 – Datum als Text anzeigen
+
+### 🔍 View-Idee
+Datum `hiredate` soll im Format `YYYY-MM-DD` dargestellt und bearbeitet werden.
+
+### ✅ Vorteile
+- Benutzer sieht klar lesbares Datum
+- `INSERT` und `UPDATE` ohne manuelles Parsen möglich
+
+### 🧠 Triggerlogik
+- `TO_DATE(:NEW.format_hiredate, 'YYYY-MM-DD')` konvertiert Eingabe in echtes DATE
+- Werte werden in `emp` gespeichert
+
+---
+
+## 🧪 Vergleich der Trigger
+
+| Merkmal                          | Aufgabe 1.1                                | Aufgabe 1.2                                   |
+|----------------------------------|--------------------------------------------|-----------------------------------------------|
+| Art des Views                    | `dname` statt `deptno`                     | Datum als Text (format_hiredate)              |
+| Komplexität                      | mittel                                     | eher gering                                   |
+| Konvertierung                    | Name → Nummer (via SELECT)                 | Text → DATE (via TO_DATE)                     |
+| Fehlerbehandlung                 | Ja, bei ungültigem `dname`                 | Nicht notwendig, da DATE-Format festgelegt    |
+| Trigger-Typ                      | `INSTEAD OF INSERT OR UPDATE`              | `INSTEAD OF INSERT OR UPDATE`                 |
+| Vorteile                         | Benutzerfreundlich, lesbar, sicheres Mapping | Benutzerfreundliches Datumsformat             |
+
+---
+
+## 📦 Fazit – Wann INSTEAD OF Trigger verwenden?
+
+| Wenn …                                                                 | Dann nutze …        |
+|------------------------------------------------------------------------|----------------------|
+| … der View aus mehreren Tabellen besteht                              | `INSTEAD OF` Trigger |
+| … Felder im View nicht direkt änderbar sind (z. B. berechnete Felder) | `INSTEAD OF` Trigger |
+| … Benutzer nur logische Namen sehen soll (statt IDs)                  | `INSTEAD OF` Trigger |
+| … Formatierung (z. B. von Datum) im View sichtbar sein soll           | `INSTEAD OF` Trigger |
